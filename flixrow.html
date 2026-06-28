@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000000">
+<title>Flixrow</title>
+
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+    :root {
+        --void: #000000;
+        --surface: #0B1420;
+        --surface-2: #16222F;
+        --blue: #2563EB;
+        --crimson: #E2304A;
+        --ink: #FFFFFF;
+        --muted: #8A93A0;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background: var(--void);
+        color: var(--ink);
+        font-family: 'Inter', Roboto, Helvetica, Arial, sans-serif;
+        padding-bottom: 92px;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ===== Telas (navegação entre Home / Explorar / Sua Lista / Configurações) ===== */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ===== Logo ===== */
+    .logo { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; display: flex; align-items: center; }
+
+    /* ===== 1. HOME — Barra Superior ===== */
+    .top-bar {
+        position: fixed; top: 0; width: 100%;
+        display: flex; justify-content: space-between; align-items: center; gap: 14px;
+        padding: 14px 20px; background: linear-gradient(to bottom, rgba(0,0,0,.95), rgba(0,0,0,0));
+        z-index: 1000;
+    }
+    .top-bar .logo { font-size: 26px; flex-shrink: 0; }
+    .top-actions { display: flex; gap: 18px; align-items: center; flex-shrink: 0; }
+    .top-actions i { font-size: 24px; cursor: pointer; color: var(--ink); }
+    .profile-pic {
+        width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2);
+        border: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;
+    }
+    .search-field { display: none; flex: 1; min-width: 0; }
+    .search-input {
+        width: 100%; background: var(--surface); border: 1px solid var(--surface-2); border-radius: 8px;
+        padding: 9px 14px; color: var(--ink); font-size: 15px; font-family: 'Inter', sans-serif; outline: none;
+    }
+    .search-input:focus { border-color: var(--blue); }
+    .search-input::placeholder { color: var(--muted); }
+    .top-bar.search-active .logo { display: none; }
+    .top-bar.search-active .profile-pic { display: none; }
+    .top-bar.search-active .search-field { display: flex; }
+
+    /* Overlay de resultados — lista vertical, some instantaneamente ao fechar (sem firulas) */
+    .search-overlay {
+        display: none; position: fixed; inset: 0; z-index: 950; background: var(--void);
+        overflow-y: auto; padding-top: 68px; padding-bottom: 100px;
+    }
+    .search-overlay.active { display: block; }
+    .search-empty-hint { padding: 50px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+    .search-result-item { display: flex; gap: 12px; align-items: center; padding: 10px 20px; }
+    .search-result-thumb { width: 46px; height: 69px; border-radius: 4px; object-fit: cover; background: var(--surface); flex-shrink: 0; }
+    .search-result-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .search-result-title { font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-result-meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+    /* ===== HOME — Hero Banner ===== */
+    .hero {
+        height: 65vh; min-height: 430px;
+        background-image: linear-gradient(to top, var(--void) 8%, rgba(0,0,0,.18) 55%, rgba(0,0,0,.55) 100%),
+                           url('https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=1470&auto=format&fit=crop');
+        background-size: cover; background-position: center;
+        position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+        padding-bottom: 34px; text-align: center;
+    }
+    .hero-title-png { max-width: 72%; width: 260px; height: auto; margin-bottom: 14px; filter: drop-shadow(0 2px 14px rgba(37,99,235,.22)) drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+    .metadata { font-size: 13.5px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px; color: var(--muted); }
+    .rating-imdb { color: var(--blue); display: flex; align-items: center; gap: 4px; font-weight: 700; }
+    .age-badge {
+        width: 20px; height: 20px; border-radius: 3px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 10.5px; font-weight: 800; color: #fff;
+    }
+    .age-badge.age-L  { background: #2EAD4B; }
+    .age-badge.age-10 { background: var(--blue); }
+    .age-badge.age-12 { background: #F5C400; color: #15151a; }
+    .age-badge.age-14 { background: #FF8C1A; color: #15151a; }
+    .age-badge.age-16 { background: #E5342E; }
+    .age-badge.age-18 { background: #000; color: #fff; border: 1.5px solid #fff; }
+    .dot-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); flex-shrink: 0; display: inline-block; }
+
+    .hero-cta-group { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; margin-bottom: 18px; }
+    .btn-watch {
+        background: var(--blue); color: var(--void); padding: 13px 0; width: 76%; max-width: 280px;
+        border-radius: 30px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; border: none;
+        display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 15px; cursor: pointer;
+        font-family: 'Inter', sans-serif; box-shadow: 0 6px 18px rgba(37,99,235,.32);
+    }
+    .hero-side-icons { display: flex; gap: 30px; }
+    .icon-action { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--ink); cursor: pointer; }
+    .icon-action i { font-size: 22px; }
+    .icon-action span { font-size: 10.5px; color: var(--muted); }
+    .pagination { display: flex; gap: 7px; align-items: center; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-2); }
+    .dot.active { background: var(--blue); width: 16px; border-radius: 6px; box-shadow: 0 0 6px 2px rgba(37,99,235,.6); }
+
+    /* ===== Carrosséis (Home) ===== */
+    .row-title { display: flex; align-items: center; gap: 9px; padding: 26px 20px 12px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: .5px; }
+    .row-title::before { content: ''; width: 14px; height: 3px; border-radius: 2px; flex-shrink: 0; background: var(--blue); box-shadow: 0 0 6px rgba(37,99,235,.6); }
+    .carousel { display: flex; overflow-x: auto; gap: 14px; padding: 0 20px; scrollbar-width: none; }
+    .carousel::-webkit-scrollbar { display: none; }
+
+    .card { flex: 0 0 138px; position: relative; cursor: pointer; }
+    .card-img-container { position: relative; width: 100%; aspect-ratio: 2/3; border-radius: 6px; overflow: hidden; background: var(--surface); }
+    .card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-overlay-top { position: absolute; top: 7px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 7px; z-index: 2; }
+    .tag-small { background: rgba(0,0,0,.75); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; gap: 3px; }
+    .tag-small.rating { color: var(--blue); }
+    .card-title { font-size: 12.5px; margin-top: 9px; font-weight: 500; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+    .progress-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(255,255,255,.12); z-index: 2; }
+    .progress-fill { height: 100%; background: var(--crimson); }
+
+    .card-top10 { flex: 0 0 auto; }
+    .top10-row { display: flex; align-items: flex-end; }
+    .top10-rank { font-family: 'Bebas Neue', sans-serif; font-size: 76px; line-height: .7; color: rgba(37,99,235,.12); -webkit-text-stroke: 2px rgba(37,99,235,.9); margin-right: -3px; flex-shrink: 0; position: relative; z-index: 1; }
+    .card-top10 .card-img-container { flex: 0 0 116px; z-index: 2; }
+
+    /* ===== Grade 3 colunas (Explorar / Sua Lista) ===== */
+    .grid-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 10px; padding: 8px 20px 24px; }
+    .card.grid-card { flex: none; width: 100%; }
+    .grid-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 13px; padding: 40px 10px; }
+    .fav-badge { width: 22px; height: 22px; border-radius: 50%; background: var(--crimson); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; }
+    .select-checkbox { width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.65); border: 2px solid var(--ink); cursor: pointer; }
+    .select-checkbox.checked { background: var(--blue); border-color: var(--blue); display: flex; align-items: center; justify-content: center; color: var(--void); font-size: 11px; font-weight: 900; }
+
+    /* ===== Explorar ===== */
+    .explore-top { position: sticky; top: 0; background: var(--void); z-index: 80; padding-bottom: 2px; }
+    .explore-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--surface-2); border-radius: 8px; padding: 11px 14px; margin: 16px 20px 10px; }
+    .explore-search input { flex: 1; background: transparent; border: none; outline: none; color: var(--ink); font-size: 14.5px; font-family: 'Inter'; }
+    .explore-search input::placeholder { color: var(--muted); }
+    .chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 0 20px 14px; scrollbar-width: none; }
+    .chip-row::-webkit-scrollbar { display: none; }
+    .chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; background: var(--surface); border: 1px solid var(--surface-2); font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+    .chip.active { background: var(--blue); color: var(--void); border-color: var(--blue); font-weight: 700; }
+
+    /* ===== Bottom Sheet de Filtros ===== */
+    .sheet-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1100; }
+    .sheet-backdrop.active { display: block; }
+    .bottom-sheet {
+        position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 18px 18px 0 0;
+        z-index: 1101; max-height: 78vh; overflow-y: auto; padding: 14px 20px 26px;
+        transform: translateY(100%); transition: transform .25s ease;
+    }
+    .bottom-sheet.active { transform: translateY(0); }
+    .sheet-handle { width: 36px; height: 4px; background: var(--surface-2); border-radius: 2px; margin: 0 auto 16px; }
+    .sheet-title { font-family: 'Bebas Neue', sans-serif; font-size: 19px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .sheet-section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 16px 0 10px; }
+    .genre-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .year-range { display: flex; gap: 10px; align-items: center; }
+    .year-input { flex: 1; background: var(--void); border: 1px solid var(--surface-2); border-radius: 8px; padding: 9px; color: var(--ink); font-size: 14px; font-family: 'Inter'; }
+    .sort-options { display: flex; flex-direction: column; gap: 12px; }
+    .sort-option { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink); cursor: pointer; }
+    .btn-apply { background: var(--blue); color: var(--void); border: none; border-radius: 8px; padding: 13px; width: 100%; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; cursor: pointer; font-family: 'Inter'; margin-top: 22px; }
+
+    /* ===== Sua Lista ===== */
+    .lista-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px 10px; }
+    .lista-search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--surface-2); border-radius: 8px; padding: 10px 14px; }
+    .lista-search input { flex: 1; background: transparent; border: none; outline: none; color: var(--ink); font-size: 14px; font-family: 'Inter'; }
+    .lista-search input::placeholder { color: var(--muted); }
+    .trash-btn { width: 40px; height: 40px; border-radius: 8px; background: var(--surface); border: 1px solid var(--surface-2); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .trash-btn i { font-size: 19px; color: var(--ink); }
+    .fab-delete-bar {
+        display: none; position: fixed; left: 20px; right: 20px; bottom: 108px; background: var(--blue); color: var(--void);
+        border-radius: 30px; padding: 14px; text-align: center; font-weight: 800; font-family: 'Inter'; align-items: center;
+        justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 6px 18px rgba(37,99,235,.4); z-index: 990;
+    }
+    .fab-delete-bar.active { display: flex; }
+
+    /* ===== Diálogo de confirmação ===== */
+    .dialog-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 1200; align-items: center; justify-content: center; }
+    .dialog-backdrop.active { display: flex; }
+    .dialog-box { background: var(--surface); border-radius: 14px; padding: 22px; width: 82%; max-width: 320px; text-align: center; }
+    .dialog-title { font-family: 'Bebas Neue', sans-serif; font-size: 19px; margin-bottom: 8px; }
+    .dialog-text { font-size: 13.5px; color: var(--muted); margin-bottom: 20px; }
+    .dialog-actions { display: flex; gap: 10px; }
+    .dialog-btn { flex: 1; padding: 11px; border-radius: 8px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; font-family: 'Inter'; }
+    .dialog-btn.cancel { background: var(--surface-2); color: var(--ink); }
+    .dialog-btn.confirm { background: var(--crimson); color: var(--ink); }
+
+    /* ===== Configurações ===== */
+    .settings-logo-wrap { display: flex; flex-direction: column; align-items: center; padding: 36px 20px 22px; }
+    .settings-logo-wrap .logo { font-size: 32px; }
+    .settings-list { padding: 4px 0; }
+    .settings-item { display: flex; align-items: center; gap: 14px; padding: 15px 20px; cursor: pointer; border-bottom: 1px solid var(--surface-2); }
+    .settings-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .settings-icon i { font-size: 19px; color: var(--blue); }
+    .settings-text { flex: 1; min-width: 0; }
+    .settings-label { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .settings-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .chevron { font-size: 19px; color: var(--muted); flex-shrink: 0; }
+
+    /* ===== Barra de Navegação Inferior (4 abas) ===== */
+    .bottom-nav { position: fixed; bottom: 0; width: 100%; display: flex; justify-content: space-around; background: var(--surface); padding: 10px 0 24px; border-top: 1px solid var(--surface-2); z-index: 1000; }
+    .nav-item { text-align: center; color: var(--muted); font-size: 10.5px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .nav-bulb { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+    .nav-item i { font-size: 24px; }
+    .nav-item.active { color: var(--blue); }
+    .nav-item.active .nav-bulb { background: var(--blue); box-shadow: 0 0 6px 2px rgba(37,99,235,.6); }
+</style>
+</head>
+<body>
+
+<!-- ============ TELA 1: HOME ============ -->
+<section class="screen active" id="screen-home">
+
+    <header class="top-bar" id="topBarHome">
+        <div class="logo">FLIXROW</div>
+        <div class="search-field" id="homeSearchField">
+            <input type="text" inputmode="search" enterkeyhint="search" id="homeSearchInput" class="search-input" placeholder="Buscar filmes, séries, animes...">
+        </div>
+        <div class="top-actions">
+            <i class="ri-search-2-line" id="homeSearchIcon"></i>
+            <div class="profile-pic"><i class="ri-user-line" style="font-size:20px;color:var(--muted);"></i></div>
+        </div>
+    </header>
+
+    <div class="search-overlay" id="searchOverlay">
+        <div id="searchResultList"></div>
+    </div>
+
+    <section class="hero">
+        <img class="hero-title-png"
+             src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='110'><text x='50%25' y='58%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial Black, Arial, sans-serif' font-size='50' font-style='italic' font-weight='900' fill='%23FFFFFF' stroke='%23000000' stroke-width='1.5'>BLOCKBUSTER</text></svg>"
+             alt="Logo do filme em destaque">
+        <div class="metadata">
+            <span class="rating-imdb"><i class="ri-star-fill"></i> 8.9</span>
+            <span class="dot-sep"></span> 2024 <span class="dot-sep"></span> Ficção Científica <span class="dot-sep"></span>
+            <span class="age-badge age-18">18</span>
+        </div>
+        <div class="hero-cta-group">
+            <button class="btn-watch"><i class="ri-play-large-fill"></i> Assistir</button>
+            <div class="hero-side-icons">
+                <div class="icon-action"><i class="ri-add-line"></i><span>Minha Lista</span></div>
+                <div class="icon-action"><i class="ri-heart-line"></i><span>Favoritar</span></div>
+                <div class="icon-action"><i class="ri-share-forward-line"></i><span>Compartilhar</span></div>
+            </div>
+        </div>
+        <div class="pagination">
+            <div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+    </section>
+
+    <main>
+        <div class="row-title">Continuar Assistindo</div>
+        <div class="carousel">
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.4</span><span class="age-badge age-16">16</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Interestelar" class="card-img"><div class="progress-bar"><div class="progress-fill" style="width:70%;"></div></div></div><div class="card-title">Interestelar</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.8</span><span class="age-badge age-14">14</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Inception" class="card-img"><div class="progress-bar"><div class="progress-fill" style="width:30%;"></div></div></div><div class="card-title">Inception</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.9</span><span class="age-badge age-12">12</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Duna" class="card-img"><div class="progress-bar"><div class="progress-fill" style="width:55%;"></div></div></div><div class="card-title">Duna: Parte Dois</div></div>
+        </div>
+
+        <div class="row-title">Lançamentos</div>
+        <div class="carousel">
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.5</span><span class="age-badge age-L">L</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Cidade+Perdida" class="card-img"></div><div class="card-title">Cidade Perdida</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.1</span><span class="age-badge age-16">16</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Horizonte+Sombrio" class="card-img"></div><div class="card-title">Horizonte Sombrio</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 6.9</span><span class="age-badge age-10">10</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Aurora+Boreal" class="card-img"></div><div class="card-title">Aurora Boreal</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.2</span><span class="age-badge age-18">18</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Vinganca" class="card-img"></div><div class="card-title">Vingança Silenciosa</div></div>
+        </div>
+
+        <div class="row-title">Top 10 Filmes</div>
+        <div class="carousel">
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">1</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Trovao" class="card-img"></div></div><div class="card-title">Operação Trovão</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">2</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Sombras" class="card-img"></div></div><div class="card-title">Sombras do Passado</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">3</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Velocidade" class="card-img"></div></div><div class="card-title">Velocidade Máxima</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">4</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Ultimo+Voo" class="card-img"></div></div><div class="card-title">O Último Voo</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">5</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Cristal" class="card-img"></div></div><div class="card-title">Reino de Cristal</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">6</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Tempestade" class="card-img"></div></div><div class="card-title">Caçadores de Tempestade</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">7</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Fronteira" class="card-img"></div></div><div class="card-title">Fronteira Final</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">8</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Noite+Eterna" class="card-img"></div></div><div class="card-title">Noite Eterna</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">9</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Labirinto" class="card-img"></div></div><div class="card-title">Labirinto de Espelhos</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">10</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Destino" class="card-img"></div></div><div class="card-title">Destino Incerto</div></div>
+        </div>
+
+        <div class="row-title">Top 10 Séries</div>
+        <div class="carousel">
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">1</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Conexao" class="card-img"></div></div><div class="card-title">Conexão Perdida</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">2</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Submundo" class="card-img"></div></div><div class="card-title">Submundo</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">3</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Codigo" class="card-img"></div></div><div class="card-title">Código Vermelho</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">4</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Linhagem" class="card-img"></div></div><div class="card-title">Linhagem</div></div>
+            <div class="card card-top10"><div class="top10-row"><span class="top10-rank">5</span><div class="card-img-container"><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Setor+9" class="card-img"></div></div><div class="card-title">Setor 9</div></div>
+        </div>
+
+        <div class="row-title">Filmes</div>
+        <div class="carousel">
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.8</span><span class="age-badge age-14">14</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Mare+Alta" class="card-img"></div><div class="card-title">Maré Alta</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 6.4</span><span class="age-badge age-12">12</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Travessia" class="card-img"></div><div class="card-title">Travessia</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.2</span><span class="age-badge age-16">16</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Distancia+Zero" class="card-img"></div><div class="card-title">Distância Zero</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.0</span><span class="age-badge age-10">10</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Raizes" class="card-img"></div><div class="card-title">Raízes</div></div>
+        </div>
+
+        <div class="row-title">Séries</div>
+        <div class="carousel">
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.6</span><span class="age-badge age-16">16</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Estacao+Final" class="card-img"></div><div class="card-title">Estação Final</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.7</span><span class="age-badge age-14">14</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Mares+do+Norte" class="card-img"></div><div class="card-title">Marés do Norte</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 9.0</span><span class="age-badge age-18">18</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Veredito" class="card-img"></div><div class="card-title">Veredito</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.1</span><span class="age-badge age-12">12</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Capitulo+Final" class="card-img"></div><div class="card-title">Capítulo Final</div></div>
+        </div>
+
+        <div class="row-title">Animes</div>
+        <div class="carousel">
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.9</span><span class="age-badge age-14">14</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Lamina+Estelar" class="card-img"></div><div class="card-title">Lâmina Estelar</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.3</span><span class="age-badge age-12">12</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Cronicas+do+Vento" class="card-img"></div><div class="card-title">Crônicas do Vento</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 7.6</span><span class="age-badge age-16">16</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Pacto+de+Sombras" class="card-img"></div><div class="card-title">Pacto de Sombras</div></div>
+            <div class="card"><div class="card-img-container"><div class="card-overlay-top"><span class="tag-small rating"><i class="ri-star-s-fill"></i> 8.0</span><span class="age-badge age-10">10</span></div><img src="https://placehold.co/140x210/0b1420/8a93a0?text=Aurora+Carmesim" class="card-img"></div><div class="card-title">Aurora Carmesim</div></div>
+        </div>
+    </main>
+</section>
+
+<!-- ============ TELA 2: EXPLORAR ============ -->
+<section class="screen" id="screen-explorar">
+    <div class="explore-top">
+        <div class="explore-search">
+            <i class="ri-search-2-line" style="color:var(--muted);font-size:18px;"></i>
+            <input type="text" id="exploreSearchInput" placeholder="Buscar filmes, séries, animes...">
+        </div>
+        <div class="chip-row" id="chipRow">
+            <div class="chip" data-type="filme">Filmes</div>
+            <div class="chip" data-type="serie">Séries</div>
+            <div class="chip" data-type="anime">Animes</div>
+            <div class="chip" id="chipGenero">Gêneros <i class="ri-arrow-down-s-line"></i></div>
+            <div class="chip" id="chipAno">Ano <i class="ri-arrow-down-s-line"></i></div>
+            <div class="chip" id="chipNota"><i class="ri-star-fill" style="font-size:10px;"></i> Nota Mínima <i class="ri-arrow-down-s-line"></i></div>
+        </div>
+    </div>
+    <div class="row-title" id="exploreLabel" style="padding-top:8px;">Em Alta</div>
+    <div class="grid-3col" id="exploreGrid"></div>
+    <div id="exploreSentinel" style="height:1px;"></div>
+</section>
+
+<!-- Bottom Sheet de filtros (compartilhado pelos chips Gêneros / Ano / Nota Mínima) -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="bottom-sheet" id="filterSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Filtros <i class="ri-close-line" id="sheetClose" style="cursor:pointer;"></i></div>
+
+    <div class="sheet-section-label">Gêneros</div>
+    <div class="genre-grid" id="genreGrid"></div>
+
+    <div class="sheet-section-label">Ano</div>
+    <div class="year-range">
+        <input type="number" class="year-input" id="yearFrom" placeholder="De">
+        <span style="color:var(--muted);">—</span>
+        <input type="number" class="year-input" id="yearTo" placeholder="Até">
+    </div>
+
+    <div class="sheet-section-label">Nota Mínima: <span id="minRatingValue">0.0</span> ⭐</div>
+    <input type="range" id="minRatingSlider" min="0" max="10" step="0.5" value="0" style="width:100%;accent-color:var(--blue);">
+
+    <div class="sheet-section-label">Ordenar por</div>
+    <div class="sort-options">
+        <label class="sort-option"><input type="radio" name="sort" value="popular" checked style="accent-color:var(--blue);width:18px;height:18px;"> Mais Populares</label>
+        <label class="sort-option"><input type="radio" name="sort" value="rating" style="accent-color:var(--blue);width:18px;height:18px;"> Melhor Avaliados</label>
+        <label class="sort-option"><input type="radio" name="sort" value="new" style="accent-color:var(--blue);width:18px;height:18px;"> Mais Novos</label>
+    </div>
+
+    <button class="btn-apply" id="applyFilters">Aplicar Filtros</button>
+</div>
+
+<!-- ============ TELA 3: SUA LISTA ============ -->
+<section class="screen" id="screen-lista">
+    <div class="lista-header">
+        <div class="lista-search">
+            <i class="ri-search-2-line" style="color:var(--muted);font-size:17px;"></i>
+            <input type="text" id="listaSearchInput" placeholder="Filtrar títulos salvos...">
+        </div>
+        <div class="trash-btn" id="trashBtn"><i class="ri-delete-bin-line"></i></div>
+    </div>
+    <div class="grid-3col" id="listaGrid"></div>
+</section>
+<div class="fab-delete-bar" id="fabDeleteBar">Excluir Selecionados (0)</div>
+
+<!-- Diálogo de confirmação de exclusão -->
+<div class="dialog-backdrop" id="dialogBackdrop">
+    <div class="dialog-box">
+        <div class="dialog-title">Remover da lista?</div>
+        <div class="dialog-text" id="dialogText">Remover itens selecionados da sua lista?</div>
+        <div class="dialog-actions">
+            <button class="dialog-btn cancel" id="dialogCancel">Cancelar</button>
+            <button class="dialog-btn confirm" id="dialogConfirm">Confirmar Exclusão</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ TELA 4: CONFIGURAÇÕES ============ -->
+<section class="screen" id="screen-config">
+    <div class="settings-logo-wrap">
+        <div class="logo">FLIXROW</div>
+    </div>
+    <div class="settings-list">
+        <div class="settings-item"><div class="settings-icon"><i class="ri-user-3-line"></i></div><div class="settings-text"><div class="settings-label">Perfil</div><div class="settings-sub">Avatar, nome de usuário e perfis</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+        <div class="settings-item"><div class="settings-icon"><i class="ri-download-2-line"></i></div><div class="settings-text"><div class="settings-label">Downloads</div><div class="settings-sub">Armazenamento e mídias offline</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+        <div class="settings-item"><div class="settings-icon"><i class="ri-database-2-line"></i></div><div class="settings-text"><div class="settings-label">Armazenamento e Backup</div><div class="settings-sub">Cache, extensões e backup</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+        <div class="settings-item"><div class="settings-icon"><i class="ri-tools-line"></i></div><div class="settings-text"><div class="settings-label">Configurações</div><div class="settings-sub">Idioma, player de vídeo e dados móveis</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+        <div class="settings-item"><div class="settings-icon"><i class="ri-information-line"></i></div><div class="settings-text"><div class="settings-label">Sobre</div><div class="settings-sub">Versão, termos e créditos TMDB</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+        <div class="settings-item"><div class="settings-icon"><i class="ri-question-line"></i></div><div class="settings-text"><div class="settings-label">Ajuda</div><div class="settings-sub">FAQ e suporte</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+        <div class="settings-item"><div class="settings-icon"><i class="ri-github-fill"></i></div><div class="settings-text"><div class="settings-label">GitHub</div><div class="settings-sub">Repositório open-source</div></div><i class="ri-arrow-right-s-line chevron"></i></div>
+    </div>
+</section>
+
+<!-- ============ NAVEGAÇÃO INFERIOR (global, 4 abas) ============ -->
+<nav class="bottom-nav" id="bottomNav">
+    <a href="#" class="nav-item active" data-screen="home"><span class="nav-bulb"></span><i class="ri-home-5-line"></i>Home</a>
+    <a href="#" class="nav-item" data-screen="explorar"><span class="nav-bulb"></span><i class="ri-compass-3-line"></i>Explorar</a>
+    <a href="#" class="nav-item" data-screen="lista"><span class="nav-bulb"></span><i class="ri-bookmark-line"></i>Sua Lista</a>
+    <a href="#" class="nav-item" data-screen="config"><span class="nav-bulb"></span><i class="ri-settings-4-line"></i>Configurações</a>
+</nav>
+
+<script>
+/* ===================== CATÁLOGO MOCK (TMDB simulado) ===================== */
+const CATALOG = [
+    {id:1, title:'Interestelar', year:2014, rating:8.6, age:12, type:'filme', genres:['Ficção Científica','Drama'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Interestelar', saved:true, fav:true},
+    {id:2, title:'Inception', year:2010, rating:8.8, age:14, type:'filme', genres:['Ficção Científica','Suspense'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Inception', saved:true, fav:false},
+    {id:3, title:'Duna: Parte Dois', year:2024, rating:8.4, age:12, type:'filme', genres:['Ficção Científica','Aventura'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Duna', saved:true, fav:true},
+    {id:4, title:'Cidade Perdida', year:2025, rating:7.5, age:'L', type:'filme', genres:['Aventura','Comédia'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Cidade+Perdida', saved:false, fav:false},
+    {id:5, title:'Horizonte Sombrio', year:2025, rating:8.1, age:16, type:'filme', genres:['Terror','Suspense'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Horizonte', saved:false, fav:false},
+    {id:6, title:'Aurora Boreal', year:2024, rating:6.9, age:10, type:'filme', genres:['Drama','Romance'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Aurora+Boreal', saved:true, fav:false},
+    {id:7, title:'Vingança Silenciosa', year:2023, rating:7.2, age:18, type:'filme', genres:['Ação','Suspense'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Vinganca', saved:false, fav:false},
+    {id:8, title:'Operação Trovão', year:2022, rating:7.4, age:14, type:'filme', genres:['Ação','Aventura'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Trovao', saved:false, fav:false},
+    {id:9, title:'Conexão Perdida', year:2023, rating:8.0, age:16, type:'serie', genres:['Drama','Suspense'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Conexao', saved:true, fav:false},
+    {id:10, title:'Submundo', year:2021, rating:7.6, age:18, type:'serie', genres:['Ação','Terror'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Submundo', saved:false, fav:false},
+    {id:11, title:'Código Vermelho', year:2024, rating:8.3, age:16, type:'serie', genres:['Suspense','Drama'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Codigo', saved:true, fav:true},
+    {id:12, title:'Estação Final', year:2022, rating:8.6, age:16, type:'serie', genres:['Ficção Científica','Drama'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Estacao+Final', saved:false, fav:false},
+    {id:13, title:'Marés do Norte', year:2023, rating:7.7, age:14, type:'serie', genres:['Drama','Romance'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Mares', saved:true, fav:false},
+    {id:14, title:'Veredito', year:2024, rating:9.0, age:18, type:'serie', genres:['Drama','Suspense'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Veredito', saved:false, fav:false},
+    {id:15, title:'Lâmina Estelar', year:2023, rating:8.9, age:14, type:'anime', genres:['Animação','Ação'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Lamina', saved:true, fav:false},
+    {id:16, title:'Crônicas do Vento', year:2021, rating:8.3, age:12, type:'anime', genres:['Animação','Aventura'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Cronicas', saved:false, fav:false},
+    {id:17, title:'Pacto de Sombras', year:2022, rating:7.6, age:16, type:'anime', genres:['Animação','Terror'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Pacto', saved:true, fav:false},
+    {id:18, title:'Aurora Carmesim', year:2024, rating:8.0, age:10, type:'anime', genres:['Animação','Romance'], img:'https://placehold.co/200x300/0b1420/8a93a0?text=Carmesim', saved:false, fav:false}
+];
+const GENRES = ['Ação','Aventura','Comédia','Drama','Terror','Ficção Científica','Romance','Animação','Documentário','Suspense'];
+
+/* ===================== NAVEGAÇÃO ENTRE TELAS ===================== */
+function closeHomeSearch() {
+    document.getElementById('topBarHome').classList.remove('search-active');
+    document.getElementById('homeSearchIcon').className = 'ri-search-2-line';
+    document.getElementById('searchOverlay').classList.remove('active');
+    document.getElementById('homeSearchInput').value = '';
+    document.getElementById('homeSearchInput').blur();
+}
+document.querySelectorAll('#bottomNav .nav-item').forEach(function (item) {
+    item.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = item.dataset.screen;
+        document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+        document.getElementById('screen-' + target).classList.add('active');
+        document.querySelectorAll('#bottomNav .nav-item').forEach(function (n) { n.classList.remove('active'); });
+        item.classList.add('active');
+        window.scrollTo(0, 0);
+        if (target !== 'home') closeHomeSearch();
+    });
+});
+
+/* ===================== HOME: BUSCA DIRETA (lupa <-> X) ===================== */
+let homeSearchActive = false;
+document.getElementById('homeSearchIcon').addEventListener('click', function () {
+    const icon = this;
+    if (!homeSearchActive) {
+        homeSearchActive = true;
+        document.getElementById('topBarHome').classList.add('search-active');
+        icon.className = 'ri-close-line';
+        document.getElementById('searchOverlay').classList.add('active');
+        document.getElementById('homeSearchInput').focus();
+        renderHomeSearchResults();
+    } else {
+        const input = document.getElementById('homeSearchInput');
+        if (input.value) {
+            input.value = '';
+            renderHomeSearchResults();
+            input.focus();
+        } else {
+            homeSearchActive = false;
+            closeHomeSearch();
+        }
+    }
+});
+document.getElementById('homeSearchInput').addEventListener('input', renderHomeSearchResults);
+function renderHomeSearchResults() {
+    const q = document.getElementById('homeSearchInput').value.trim().toLowerCase();
+    const list = document.getElementById('searchResultList');
+    if (!q) { list.innerHTML = '<div class="search-empty-hint">Digite para buscar filmes, séries e animes.</div>'; return; }
+    const results = CATALOG.filter(function (i) { return i.title.toLowerCase().includes(q); });
+    if (results.length === 0) { list.innerHTML = '<div class="search-empty-hint">Nenhum resultado encontrado.</div>'; return; }
+    list.innerHTML = results.map(function (i) {
+        return '<div class="search-result-item">' +
+            '<img class="search-result-thumb" src="' + i.img + '">' +
+            '<div class="search-result-info">' +
+                '<div class="search-result-title">' + i.title + '</div>' +
+                '<div class="search-result-meta">' + i.year + ' <span class="dot-sep"></span> <span class="rating-imdb"><i class="ri-star-fill"></i> ' + i.rating.toFixed(1) + '</span></div>' +
+            '</div></div>';
+    }).join('');
+}
+
+/* ===================== CARD HELPERS (Explorar / Sua Lista) ===================== */
+function renderGridCard(item, opts) {
+    opts = opts || {};
+    const mode = opts.mode || 'explore';
+    let topLeft;
+    if (mode === 'lista' && item.fav) {
+        topLeft = '<div class="fav-badge"><i class="ri-heart-3-fill"></i></div>';
+    } else if (mode === 'lista' && opts.selectionMode) {
+        topLeft = '<div class="select-checkbox" data-id="' + item.id + '"></div>';
+    } else {
+        topLeft = '<span class="tag-small rating"><i class="ri-star-s-fill"></i> ' + item.rating.toFixed(1) + '</span>';
+    }
+    return '<div class="card grid-card' + (item.fav ? ' is-favorite' : '') + '" data-id="' + item.id + '">' +
+        '<div class="card-img-container"><div class="card-overlay-top">' + topLeft + '<span class="age-badge age-' + item.age + '">' + item.age + '</span></div>' +
+        '<img src="' + item.img + '" class="card-img"></div>' +
+        '<div class="card-title">' + item.title + '</div></div>';
+}
+
+/* ===================== EXPLORAR ===================== */
+let exploreFilters = { types: new Set(), genres: new Set(), yearFrom: null, yearTo: null, minRating: 0, sort: 'popular', query: '' };
+let explorePage = 1;
+const PAGE_SIZE = 9;
+
+function getFilteredCatalog() {
+    let data = CATALOG.filter(function (item) {
+        if (exploreFilters.query && !item.title.toLowerCase().includes(exploreFilters.query.toLowerCase())) return false;
+        if (exploreFilters.types.size && !exploreFilters.types.has(item.type)) return false;
+        if (exploreFilters.genres.size && !item.genres.some(function (g) { return exploreFilters.genres.has(g); })) return false;
+        if (item.rating < exploreFilters.minRating) return false;
+        if (exploreFilters.yearFrom && item.year < exploreFilters.yearFrom) return false;
+        if (exploreFilters.yearTo && item.year > exploreFilters.yearTo) return false;
+        return true;
+    });
+    if (exploreFilters.sort === 'rating') data = data.slice().sort(function (a, b) { return b.rating - a.rating; });
+    else if (exploreFilters.sort === 'new') data = data.slice().sort(function (a, b) { return b.year - a.year; });
+    return data;
+}
+function renderExploreGrid(reset) {
+    if (reset) explorePage = 1;
+    const data = getFilteredCatalog();
+    const slice = data.slice(0, explorePage * PAGE_SIZE);
+    document.getElementById('exploreGrid').innerHTML = slice.map(function (i) { return renderGridCard(i, { mode: 'explore' }); }).join('') || '<div class="grid-empty">Nenhum resultado encontrado.</div>';
+    document.getElementById('exploreLabel').textContent = (exploreFilters.query || exploreFilters.types.size || exploreFilters.genres.size || exploreFilters.minRating > 0) ? 'Resultados' : 'Em Alta';
+}
+document.querySelectorAll('.chip[data-type]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+        const t = chip.dataset.type;
+        chip.classList.toggle('active');
+        if (exploreFilters.types.has(t)) exploreFilters.types.delete(t); else exploreFilters.types.add(t);
+        renderExploreGrid(true);
+    });
+});
+document.getElementById('exploreSearchInput').addEventListener('input', function () {
+    exploreFilters.query = this.value;
+    renderExploreGrid(true);
+});
+const genreGrid = document.getElementById('genreGrid');
+GENRES.forEach(function (g) {
+    const el = document.createElement('div');
+    el.className = 'chip';
+    el.textContent = g;
+    el.addEventListener('click', function () {
+        el.classList.toggle('active');
+        if (exploreFilters.genres.has(g)) exploreFilters.genres.delete(g); else exploreFilters.genres.add(g);
+    });
+    genreGrid.appendChild(el);
+});
+function openFilterSheet() { document.getElementById('sheetBackdrop').classList.add('active'); document.getElementById('filterSheet').classList.add('active'); }
+function closeFilterSheet() { document.getElementById('sheetBackdrop').classList.remove('active'); document.getElementById('filterSheet').classList.remove('active'); }
+document.getElementById('chipGenero').addEventListener('click', openFilterSheet);
+document.getElementById('chipAno').addEventListener('click', openFilterSheet);
+document.getElementById('chipNota').addEventListener('click', openFilterSheet);
+document.getElementById('sheetClose').addEventListener('click', closeFilterSheet);
+document.getElementById('sheetBackdrop').addEventListener('click', closeFilterSheet);
+document.getElementById('minRatingSlider').addEventListener('input', function () {
+    document.getElementById('minRatingValue').textContent = parseFloat(this.value).toFixed(1);
+});
+document.getElementById('applyFilters').addEventListener('click', function () {
+    const yf = document.getElementById('yearFrom').value;
+    const yt = document.getElementById('yearTo').value;
+    exploreFilters.yearFrom = yf ? parseInt(yf) : null;
+    exploreFilters.yearTo = yt ? parseInt(yt) : null;
+    exploreFilters.minRating = parseFloat(document.getElementById('minRatingSlider').value);
+    exploreFilters.sort = document.querySelector('input[name="sort"]:checked').value;
+    closeFilterSheet();
+    renderExploreGrid(true);
+});
+new IntersectionObserver(function (entries) {
+    if (entries[0].isIntersecting) {
+        const data = getFilteredCatalog();
+        if (explorePage * PAGE_SIZE < data.length) { explorePage++; renderExploreGrid(false); }
+    }
+}).observe(document.getElementById('exploreSentinel'));
+
+/* ===================== SUA LISTA ===================== */
+let selectionMode = false;
+let selectedIds = new Set();
+let listaQuery = '';
+
+function getSavedCatalog() {
+    return CATALOG.filter(function (i) { return i.saved && (!listaQuery || i.title.toLowerCase().includes(listaQuery.toLowerCase())); });
+}
+function updateFabBar() {
+    const fab = document.getElementById('fabDeleteBar');
+    if (selectedIds.size > 0) { fab.classList.add('active'); fab.textContent = 'Excluir Selecionados (' + selectedIds.size + ')'; }
+    else { fab.classList.remove('active'); }
+}
+function renderLista() {
+    const data = getSavedCatalog();
+    const grid = document.getElementById('listaGrid');
+    grid.innerHTML = data.map(function (i) { return renderGridCard(i, { mode: 'lista', selectionMode: selectionMode }); }).join('') || '<div class="grid-empty">Sua lista está vazia.</div>';
+    grid.querySelectorAll('.select-checkbox').forEach(function (cb) {
+        cb.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const id = parseInt(cb.dataset.id);
+            if (selectedIds.has(id)) { selectedIds.delete(id); cb.classList.remove('checked'); cb.textContent = ''; }
+            else { selectedIds.add(id); cb.classList.add('checked'); cb.textContent = '✓'; }
+            updateFabBar();
+        });
+    });
+    grid.querySelectorAll('.grid-card').forEach(function (card) {
+        card.addEventListener('click', function () {
+            if (selectionMode) {
+                const cb = card.querySelector('.select-checkbox');
+                if (cb) cb.click();
+            }
+        });
+    });
+    updateFabBar();
+}
+document.getElementById('trashBtn').addEventListener('click', function () {
+    selectionMode = !selectionMode;
+    this.querySelector('i').className = selectionMode ? 'ri-close-line' : 'ri-delete-bin-line';
+    if (!selectionMode) selectedIds.clear();
+    renderLista();
+});
+document.getElementById('listaSearchInput').addEventListener('input', function () {
+    listaQuery = this.value;
+    renderLista();
+});
+document.getElementById('fabDeleteBar').addEventListener('click', function () {
+    if (selectedIds.size === 0) return;
+    document.getElementById('dialogText').textContent = 'Remover ' + selectedIds.size + ' item(s) da sua lista? Itens favoritados não podem ser removidos por aqui.';
+    document.getElementById('dialogBackdrop').classList.add('active');
+});
+document.getElementById('dialogCancel').addEventListener('click', function () {
+    document.getElementById('dialogBackdrop').classList.remove('active');
+});
+document.getElementById('dialogConfirm').addEventListener('click', function () {
+    CATALOG.forEach(function (item) { if (selectedIds.has(item.id)) item.saved = false; });
+    selectedIds.clear();
+    selectionMode = false;
+    document.getElementById('trashBtn').querySelector('i').className = 'ri-delete-bin-line';
+    document.getElementById('dialogBackdrop').classList.remove('active');
+    renderLista();
+});
+
+/* ===================== INICIALIZAÇÃO ===================== */
+renderExploreGrid(true);
+renderLista();
+</script>
+
+</body>
+</html>
